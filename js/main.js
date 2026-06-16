@@ -5,6 +5,7 @@ import { JETCOBOT_STATIONS } from "./layout.js";
 const state = {
   pinkyT: 0,
   harvestPhase: 0,
+  conveyorT: 0,
   activeStation: "A",
   paused: false,
   speed: 1,
@@ -24,6 +25,7 @@ function tick(dt) {
   const rate = 0.08 * state.speed;
   state.harvestPhase += dt * rate;
   state.pinkyT += dt * 0.06 * state.speed;
+  state.conveyorT += dt * 0.05 * state.speed;
 
   if (state.harvestPhase >= 1) {
     state.harvestPhase = 0;

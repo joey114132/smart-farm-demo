@@ -6,6 +6,48 @@ export const MAP = {
   wallClearanceCm: 15,
 };
 
+/** 2D/3D 뷰에 잡을 전체 범위 (북쪽 재배대 + 남쪽 컨베이어). */
+export const MAP_EXTENTS = {
+  xMin: 0,
+  xMax: MAP.widthCm,
+  yMin: -48,
+  yMax: MAP.heightCm + 38,
+};
+
+/** 스타디움 남쪽 밖 — 토마토 등급 판별 컨베이어 라인 (cm). */
+export const CONVEYOR_GRADE_LINE = {
+  xMin: 10,
+  xMax: 90,
+  yCenter: -30,
+  widthCm: 14,
+  /** 스타디움 남쪽 벽(y=0) 바로 밖 핸드오프 */
+  gateY: -10,
+  stations: [
+    { id: "infeed", label: "투입", x: 18, y: -10 },
+    { id: "vision", label: "비전 등급", x: 50, y: -30 },
+    { id: "gradeA", label: "A등급", x: 82, y: -38 },
+    { id: "gradeB", label: "B등급", x: 82, y: -30 },
+    { id: "reject", label: "폐기", x: 82, y: -22 },
+  ],
+};
+
+/**
+ * 남쪽 벽을 따라 놓인 긴 양액 탱크·믹서·저장 (고정 설비, Pinky 주행 불가).
+ * 실제 모형의 NUTRIENT MIXING & STORAGE 스트라이프 존.
+ */
+export const NUTRIENT_AREA = {
+  xMin: 22,
+  xMax: 78,
+  yMin: 8,
+  yMax: 26,
+};
+
+/** 양액 구역 위 · 스타디움 내부 Pinky 사각 루프 남변 (cm). */
+export const PINKY_SOUTH_AISLE_Y = NUTRIENT_AREA.yMax + 6;
+
+/** 서쪽 여유 통로 — 컨베이어 스퍼가 양액 탱크를 우회 */
+export const PINKY_WEST_MARGIN_X = 15;
+
 /** Reliable localization band (≥15 cm from walls). */
 export const LOCALIZATION_ZONE = {
   xMin: 15,
@@ -20,16 +62,6 @@ export const JETCOBOT_STATIONS = [
   { id: "B", label: "JetCobot B", x: 75, y: 170, cellSize: 40 },
 ];
 
-/** Pinky Pro dock / patrol anchors. */
-export const PINKY_ANCHORS = [
-  { id: "P1", x: 20, y: 30 },
-  { id: "P2", x: 80, y: 30 },
-  { id: "P3", x: 50, y: 80 },
-];
-
-/** Nav2 inflation radius around each Pinky footprint (cm). */
-export const PINKY_INFLATION_CM = 18;
-
 /**
  * Pinky Pro travel lane — directly under JetCobot work cells.
  * Work-cell south edge is y = station.y - cellSize/2 (= 150 cm).
@@ -37,26 +69,47 @@ export const PINKY_INFLATION_CM = 18;
 export const PINKY_JETCOBOT_AISLE_Y =
   JETCOBOT_STATIONS[0].y - JETCOBOT_STATIONS[0].cellSize / 2 - 12;
 
+/** Pinky Pro dock / patrol anchors (녹색 루프 위). */
+export const PINKY_ANCHORS = [
+  { id: "P1", x: 20, y: PINKY_SOUTH_AISLE_Y },
+  { id: "P2", x: 80, y: PINKY_SOUTH_AISLE_Y },
+  {
+    id: "P3",
+    x: 50,
+    y: Math.round((PINKY_SOUTH_AISLE_Y + PINKY_JETCOBOT_AISLE_Y) / 2),
+  },
+];
+
+/** Nav2 inflation radius around each Pinky footprint (cm). */
+export const PINKY_INFLATION_CM = 18;
+
 /**
- * Clockwise single-loop traffic (prevents head-on conflicts).
- * North leg runs under JetCobot A/B, not through the work cells.
- * @type {Array<{x:number,y:number}>}
+ * 시계 방향 사각 루프 — 스타디움 내부 전용 (녹색).
+ * 남변은 양액 탱크 위, 북변은 JetCobot 작업셀 바로 아래.
  */
 export const TRAFFIC_LOOP_CM = [
-  { x: 20, y: 30 },
-  { x: 20, y: 60 },
-  { x: 20, y: 100 },
-  { x: 20, y: PINKY_JETCOBOT_AISLE_Y },
-  { x: 25, y: PINKY_JETCOBOT_AISLE_Y },
-  { x: 50, y: PINKY_JETCOBOT_AISLE_Y },
-  { x: 75, y: PINKY_JETCOBOT_AISLE_Y },
+  { x: 20, y: PINKY_SOUTH_AISLE_Y },
+  { x: 80, y: PINKY_SOUTH_AISLE_Y },
   { x: 80, y: PINKY_JETCOBOT_AISLE_Y },
-  { x: 80, y: 100 },
-  { x: 80, y: 60 },
-  { x: 80, y: 30 },
-  { x: 65, y: 45 },
-  { x: 50, y: 80 },
-  { x: 35, y: 45 },
+  { x: 20, y: PINKY_JETCOBOT_AISLE_Y },
+];
+
+/** 스타디움 밖 컨베이어 — 서쪽 여유통로로 내려감 (녹색 아님). */
+export const CONVEYOR_SPUR_CM = [
+  { x: 20, y: PINKY_SOUTH_AISLE_Y },
+  { x: PINKY_WEST_MARGIN_X, y: PINKY_SOUTH_AISLE_Y },
+  { x: PINKY_WEST_MARGIN_X, y: CONVEYOR_GRADE_LINE.gateY },
+  { x: 50, y: CONVEYOR_GRADE_LINE.gateY },
+  { x: PINKY_WEST_MARGIN_X, y: CONVEYOR_GRADE_LINE.gateY },
+  { x: PINKY_WEST_MARGIN_X, y: PINKY_SOUTH_AISLE_Y },
+  { x: 20, y: PINKY_SOUTH_AISLE_Y },
+];
+
+/** Pinky 실제 주행 경로 = 사각 루프(폐합) + 컨베이어 스퍼 */
+export const PINKY_PATH_CM = [
+  ...TRAFFIC_LOOP_CM,
+  TRAFFIC_LOOP_CM[0],
+  ...CONVEYOR_SPUR_CM.slice(1),
 ];
 
 /**

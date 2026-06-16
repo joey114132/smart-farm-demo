@@ -1,11 +1,16 @@
 import {
   MAP,
+  MAP_EXTENTS,
   LOCALIZATION_ZONE,
   JETCOBOT_STATIONS,
   PINKY_ANCHORS,
   PINKY_INFLATION_CM,
   PINKY_JETCOBOT_AISLE_Y,
+  CONVEYOR_GRADE_LINE,
+  NUTRIENT_AREA,
   TRAFFIC_LOOP_CM,
+  CONVEYOR_SPUR_CM,
+  PINKY_PATH_CM,
   FARM_BEDS,
   workCellRect,
   samplePolyline,
@@ -35,21 +40,33 @@ export class Map2D {
     this.w = rect.width;
     this.h = rect.height;
     const pad = 28;
-    const farmExtra = 42;
+    const totalW = MAP_EXTENTS.xMax - MAP_EXTENTS.xMin;
+    const totalH = MAP_EXTENTS.yMax - MAP_EXTENTS.yMin;
     this.scale = Math.min(
-      (this.w - pad * 2) / MAP.widthCm,
-      (this.h - pad * 2 - farmExtra) / (MAP.heightCm + farmExtra),
+      (this.w - pad * 2) / totalW,
+      (this.h - pad * 2) / totalH,
     );
-    this.ox = (this.w - MAP.widthCm * this.scale) / 2;
-    this.oy = this.h - pad - MAP.heightCm * this.scale;
+    const drawW = totalW * this.scale;
+    const drawH = totalH * this.scale;
+    this.ox = (this.w - drawW) / 2 - MAP_EXTENTS.xMin * this.scale;
+    this.centerYCm = (MAP_EXTENTS.yMax + MAP_EXTENTS.yMin) / 2;
+    this.cy = this.h / 2;
   }
 
-  /** Map cm (bottom-left origin) → canvas px. */
+  /** Map cm → canvas px (X mirrored to match default 3D camera). */
   toPx(xCm, yCm) {
+    const xMirror = MAP.widthCm - xCm;
     return {
-      x: this.ox + xCm * this.scale,
-      y: this.oy - yCm * this.scale,
+      x: this.ox + xMirror * this.scale,
+      y: this.cy + (this.centerYCm - yCm) * this.scale,
     };
+  }
+
+  /** 화면상 화살표 각도 — 미러링 후 실제 픽셀 방향 */
+  edgeArrowAngle(a, b) {
+    const pa = this.toPx(a.x, a.y);
+    const pb = this.toPx(b.x, b.y);
+    return Math.atan2(pb.y - pa.y, pb.x - pa.x);
   }
 
   draw() {
@@ -60,9 +77,12 @@ export class Map2D {
     ctx.fillRect(0, 0, this.w, this.h);
 
     this.drawFarmBeds();
+    this.drawConveyor();
+    this.drawNutrientArea();
     this.drawMapBoundary();
     this.drawLocalizationZone();
     this.drawTrafficLoop();
+    this.drawConveyorSpur();
     this.drawWorkCells();
     this.drawPinkyInflation();
     this.drawPinkies();
@@ -76,6 +96,83 @@ export class Map2D {
     this.ctx.strokeStyle = "#e8f0ea";
     this.ctx.lineWidth = 2;
     this.ctx.strokeRect(p0.x, p1.y, p1.x - p0.x, p0.y - p1.y);
+    this.ctx.fillStyle = "#9ad4a8";
+    this.ctx.font = "10px system-ui,sans-serif";
+    this.ctx.textAlign = "center";
+    const tag = this.toPx(MAP.widthCm / 2, MAP.heightCm * 0.5);
+    this.ctx.fillText("STADIUM (100×200 cm)", tag.x, tag.y);
+  }
+
+  drawConveyor() {
+    const c = CONVEYOR_GRADE_LINE;
+    const a = this.toPx(c.xMin, c.yCenter + c.widthCm / 2);
+    const b = this.toPx(c.xMax, c.yCenter - c.widthCm / 2);
+    this.ctx.fillStyle = "rgba(120, 120, 128, 0.55)";
+    this.ctx.strokeStyle = "#ffc107";
+    this.ctx.lineWidth = 2;
+    this.ctx.fillRect(a.x, b.y, b.x - a.x, a.y - b.y);
+    this.ctx.strokeRect(a.x, b.y, b.x - a.x, a.y - b.y);
+
+    // 벨트 위 토마토 (등급 판별 시뮬)
+    const n = 5;
+    for (let i = 0; i < n; i++) {
+      const t = (this.state.conveyorT + i / n) % 1;
+      const x = c.xMin + t * (c.xMax - c.xMin);
+      const p = this.toPx(x, c.yCenter);
+      const grade =
+        x < 40 ? "#c62828" : x < 62 ? "#ef6c00" : x < 74 ? "#2e7d32" : "#616161";
+      this.ctx.fillStyle = grade;
+      this.ctx.beginPath();
+      this.ctx.arc(p.x, p.y, Math.max(3, this.scale * 1.1), 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+
+    for (const st of c.stations) {
+      const p = this.toPx(st.x, st.y);
+      this.ctx.fillStyle = "#ffe082";
+      this.ctx.font = "9px system-ui,sans-serif";
+      this.ctx.textAlign = "center";
+      this.ctx.fillText(st.label, p.x, p.y - 8);
+    }
+
+    const gate = this.toPx(50, c.gateY);
+    this.ctx.strokeStyle = "rgba(255, 193, 7, 0.8)";
+    this.ctx.setLineDash([3, 4]);
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.toPx(0, 0).x, gate.y);
+    this.ctx.lineTo(this.toPx(MAP.widthCm, 0).x, gate.y);
+    this.ctx.stroke();
+    this.ctx.setLineDash([]);
+    this.ctx.fillStyle = "#ffc107";
+    this.ctx.font="9px system-ui,sans-serif";
+    this.ctx.fillText("남쪽 게이트 → 컨베이어", gate.x, gate.y + 12);
+  }
+
+  drawNutrientArea() {
+    const n = NUTRIENT_AREA;
+    const a = this.toPx(n.xMin, n.yMin);
+    const b = this.toPx(n.xMax, n.yMax);
+    const w = b.x - a.x;
+    const h = a.y - b.y;
+    // 스트라이프 패턴 — 고정 탱크 존
+    this.ctx.fillStyle = "rgba(255, 235, 59, 0.14)";
+    this.ctx.fillRect(a.x, b.y, w, h);
+    const stripeW = Math.max(4, this.scale * 2.5);
+    for (let x = a.x; x < a.x + w; x += stripeW * 2) {
+      this.ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+      this.ctx.fillRect(x, b.y, stripeW, h);
+    }
+    this.ctx.strokeStyle = "rgba(255, 235, 59, 0.7)";
+    this.ctx.lineWidth = 1.5;
+    this.ctx.strokeRect(a.x, b.y, w, h);
+    const mid = this.toPx((n.xMin + n.xMax) / 2, (n.yMin + n.yMax) / 2);
+    this.ctx.fillStyle = "#fff59d";
+    this.ctx.font = "9px system-ui,sans-serif";
+    this.ctx.textAlign = "center";
+    this.ctx.fillText("양액 혼합·저장", mid.x, mid.y - 4);
+    this.ctx.fillStyle = "#c5b358";
+    this.ctx.font = "8px system-ui,sans-serif";
+    this.ctx.fillText("남쪽 벽 고정 탱크 · Pinky 통과 불가", mid.x, mid.y + 8);
   }
 
   drawLocalizationZone() {
@@ -169,21 +266,44 @@ export class Map2D {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    for (let i = 0; i < TRAFFIC_LOOP_CM.length - 1; i++) {
-      const a = TRAFFIC_LOOP_CM[i];
-      const b = TRAFFIC_LOOP_CM[i + 1];
+    const edges = [...TRAFFIC_LOOP_CM, TRAFFIC_LOOP_CM[0]];
+    for (let i = 0; i < edges.length - 1; i++) {
+      const a = edges[i];
+      const b = edges[i + 1];
       const mid = this.toPx((a.x + b.x) / 2, (a.y + b.y) / 2);
-      const ang = Math.atan2(b.y - a.y, b.x - a.x);
-      this.drawArrow(mid.x, mid.y, ang, 7);
+      this.drawArrow(mid.x, mid.y, this.edgeArrowAngle(a, b), 7);
     }
   }
 
-  drawArrow(x, y, ang, len) {
-    this.ctx.fillStyle = "#66bb6a";
+  drawConveyorSpur() {
+    const ctx = this.ctx;
+    ctx.strokeStyle = "#ffc107";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 5]);
+    ctx.beginPath();
+    const start = this.toPx(CONVEYOR_SPUR_CM[0].x, CONVEYOR_SPUR_CM[0].y);
+    ctx.moveTo(start.x, start.y);
+    for (let i = 1; i < CONVEYOR_SPUR_CM.length; i++) {
+      const p = this.toPx(CONVEYOR_SPUR_CM[i].x, CONVEYOR_SPUR_CM[i].y);
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    for (let i = 0; i < CONVEYOR_SPUR_CM.length - 1; i++) {
+      const a = CONVEYOR_SPUR_CM[i];
+      const b = CONVEYOR_SPUR_CM[i + 1];
+      const mid = this.toPx((a.x + b.x) / 2, (a.y + b.y) / 2);
+      this.drawArrow(mid.x, mid.y, this.edgeArrowAngle(a, b), 5, "#ffca28");
+    }
+  }
+
+  drawArrow(x, y, ang, len, fill = "#66bb6a") {
+    this.ctx.fillStyle = fill;
     this.ctx.beginPath();
-    this.ctx.moveTo(x + Math.cos(ang) * len, y - Math.sin(ang) * len);
-    this.ctx.lineTo(x + Math.cos(ang + 2.6) * len * 0.6, y - Math.sin(ang + 2.6) * len * 0.6);
-    this.ctx.lineTo(x + Math.cos(ang - 2.6) * len * 0.6, y - Math.sin(ang - 2.6) * len * 0.6);
+    this.ctx.moveTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len);
+    this.ctx.lineTo(x + Math.cos(ang + 2.6) * len * 0.6, y + Math.sin(ang + 2.6) * len * 0.6);
+    this.ctx.lineTo(x + Math.cos(ang - 2.6) * len * 0.6, y + Math.sin(ang - 2.6) * len * 0.6);
     this.ctx.closePath();
     this.ctx.fill();
   }
@@ -206,7 +326,7 @@ export class Map2D {
     const offsets = [0, 0.33, 0.66];
     const ids = ["P1", "P2", "P3"];
     offsets.forEach((off, i) => {
-      const pos = samplePolyline(TRAFFIC_LOOP_CM, this.state.pinkyT + off);
+      const pos = samplePolyline(PINKY_PATH_CM, this.state.pinkyT + off);
       const p = this.toPx(pos.x, pos.y);
       this.ctx.fillStyle = "#e91e8c";
       this.ctx.beginPath();
@@ -224,9 +344,12 @@ export class Map2D {
       ["#e8f0ea", "Map boundary"],
       ["#ffb6c1", "Reliable localization"],
       ["#4285f4", "JetCobot work cell"],
-      ["#43a047", "Clockwise traffic loop"],
+      ["#43a047", "Square traffic loop (clockwise)"],
+      ["#ffc107", "Conveyor spur (outside stadium)"],
       ["#e91e8c", "Pinky Pro"],
-      ["#c62828", "Ripe tomato"],
+      ["#c62828", "토마토"],
+      ["#ffc107", "등급 컨베이어 (스타디움 밖)"],
+      ["#fff59d", "양액 탱크 (남쪽 벽, 고정)"],
     ];
     let y = 14;
     this.ctx.font = "10px system-ui,sans-serif";
@@ -242,10 +365,12 @@ export class Map2D {
 
   drawPhaseLabel() {
     const phases = [
-      "Idle — arms home",
-      "Harvest — reach north beds",
-      "Sort — drop into crate at cell",
-      "Transport — Pinky Pro clockwise loop",
+      "대기 — 암 홈",
+      "수확 — 북쪽 재배대",
+      "1차 투입 — 작업셀 크레이트",
+      "이송 — Pinky Pro (JetCobot 아래 통로)",
+      "컨베이어 투입 — 스타디움 남쪽 밖",
+      "등급 판별 — 비전·분류 (A/B/폐기)",
     ];
     const idx = Math.min(phases.length - 1, Math.floor(this.state.harvestPhase * phases.length));
     this.ctx.fillStyle = "#dfffe8";
