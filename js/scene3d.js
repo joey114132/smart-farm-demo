@@ -20,6 +20,27 @@ import {
   workCellRect,
 } from "./layout.js";
 
+/** urdf-loader는 ROS Z-up을 그대로 씀 → Three Y-up 바닥에 세움 */
+function standUrdfOnYUp(mesh) {
+  mesh.rotation.x = -Math.PI / 2;
+}
+
+/** 맵 heading(atan2 dx,dy) → Three.js Y 요 (전방 +Z=북) */
+function yawFromPathHeading(heading) {
+  return Math.PI - heading;
+}
+
+/** JetCobot: 세운 뒤 북쪽 재배대(+Z) */
+function orientJetcobot(robot) {
+  standUrdfOnYUp(robot);
+  robot.rotation.y = Math.PI / 2;
+}
+
+/** Pinky Pro: 세운 뒤 주행 전방은 로컬 +X */
+function orientPinky(robot) {
+  standUrdfOnYUp(robot);
+}
+
 /** Build Three.js farm scene with real JetCobot + Pinky Pro URDF meshes. */
 export class FarmScene3D {
   /**
@@ -323,20 +344,33 @@ export class FarmScene3D {
     for (const st of JETCOBOT_STATIONS) {
       const robot = await this.loadUrdf(loader, "assets/jetcobot/jetcobot.urdf");
       const pos = cmToM(st.x, st.y);
-      robot.position.set(0, 0, 0);
-      // 북쪽 재배대(+Z)를 향하도록 베이스 회전
-      robot.rotation.y = -Math.PI / 2;
+      orientJetcobot(robot);
       robot.traverse((o) => {
         if (o.isMesh) {
           o.castShadow = true;
           o.receiveShadow = true;
         }
       });
+      const harvestTomato = new THREE.Mesh(
+        new THREE.SphereGeometry(0.024, 12, 12),
+        new THREE.MeshStandardMaterial({
+          color: 0xc62828,
+          emissive: 0x4a0000,
+          emissiveIntensity: 0.35,
+        }),
+      );
+      harvestTomato.visible = false;
+      harvestTomato.castShadow = true;
+      const grip = robot.links?.gripper_base ?? robot;
+      harvestTomato.position.set(0, 0.05, 0.03);
+      grip.add(harvestTomato);
+
       const mount = new THREE.Group();
       mount.position.set(pos.x, 0, pos.z);
       mount.add(robot);
       mount.userData.stationId = st.id;
       mount.userData.robot = robot;
+      mount.userData.harvestTomato = harvestTomato;
       this.scene.add(mount);
       this.jetcobots.push(mount);
     }
@@ -344,8 +378,7 @@ export class FarmScene3D {
     this.setStatus("Loading Pinky Pro URDF…");
     for (let i = 0; i < 3; i++) {
       const robot = await this.loadUrdf(loader, "assets/pinkypro/pinkypro.urdf");
-      // urdf-loader는 ROS Z-up을 그대로 둠 → X축 -90°로 세움
-      robot.rotation.x = -Math.PI / 2;
+      orientPinky(robot);
       robot.traverse((o) => {
         if (o.isMesh) {
           o.castShadow = true;
@@ -385,48 +418,52 @@ export class FarmScene3D {
     set("joint4_to_joint3", pose.j4);
     set("joint5_to_joint4", pose.j5);
     set("joint6_to_joint5", pose.j6);
+    set("joint6output_to_joint6", pose.j6w ?? 0);
     set("gripper_controller", pose.grip);
   }
 
-  /** 수확 사이클: 홈 → 북쪽 재배대 → 집기 → 크레이트 투입 */
-  animateJetcobot(robot, phase, stationId) {
-    const home = { j2: 0.05, j3: -0.35, j4: 1.15, j5: 0.65, j6: 0, grip: 0.05 };
-    const reach = { j2: -1.05, j3: 0.45, j4: -0.55, j5: 1.35, j6: 0.25, grip: 0.05 };
-    const pick = { j2: -1.12, j3: 0.52, j4: -0.62, j5: 1.42, j6: 0.28, grip: -0.58 };
-    const crate = { j2: 0.72, j3: -0.95, j4: 1.55, j5: 0.35, j6: -0.45, grip: -0.58 };
-    const release = { j2: 0.72, j3: -0.95, j4: 1.55, j5: 0.35, j6: -0.45, grip: 0.05 };
+  /** 수확 사이클: 홈 → 북쪽 재배대 뻗기 → 토마토 집기 → 크레이트 투입 */
+  animateJetcobot(robot, phase, stationId, harvestTomato) {
+    const home = { j2: 0, j3: -0.55, j4: 1.25, j5: 0.55, j6: -0.15, j6w: 0, grip: 0.05 };
+    const reach = { j2: -1.35, j3: 0.15, j4: 0.35, j5: 1.75, j6: 0.65, j6w: 0.2, grip: 0.05 };
+    const pick = { j2: -1.42, j3: 0.22, j4: 0.28, j5: 1.82, j6: 0.72, j6w: 0.25, grip: -0.62 };
+    const carry = { j2: -0.35, j3: -0.25, j4: 0.95, j5: 1.35, j6: 0.15, j6w: 0.1, grip: -0.62 };
+    const crate = { j2: 0.95, j3: -1.05, j4: 1.65, j5: 0.25, j6: -0.55, j6w: -0.15, grip: -0.62 };
+    const release = { j2: 0.95, j3: -1.05, j4: 1.65, j5: 0.25, j6: -0.55, j6w: -0.15, grip: 0.05 };
 
     const active = this.state.activeStation === stationId;
     if (!active) {
       this.applyJetcobotPose(robot, home);
+      if (harvestTomato) harvestTomato.visible = false;
       return;
     }
 
     const p = phase;
     let pose = home;
-    if (p < 0.12) {
+    if (p < 0.1) {
       pose = home;
-    } else if (p < 0.28) {
-      const t = (p - 0.12) / 0.16;
-      pose = this.lerpPose(home, reach, t);
-    } else if (p < 0.38) {
-      const t = (p - 0.28) / 0.1;
-      pose = this.lerpPose(reach, pick, t);
-    } else if (p < 0.52) {
+    } else if (p < 0.26) {
+      pose = this.lerpPose(home, reach, (p - 0.1) / 0.16);
+    } else if (p < 0.36) {
+      pose = this.lerpPose(reach, pick, (p - 0.26) / 0.1);
+    } else if (p < 0.44) {
       pose = pick;
+    } else if (p < 0.54) {
+      pose = this.lerpPose(pick, carry, (p - 0.44) / 0.1);
     } else if (p < 0.68) {
-      const t = (p - 0.52) / 0.16;
-      pose = this.lerpPose(pick, crate, t);
+      pose = this.lerpPose(carry, crate, (p - 0.54) / 0.14);
     } else if (p < 0.78) {
-      const t = (p - 0.68) / 0.1;
-      pose = this.lerpPose(crate, release, t);
-    } else if (p < 0.9) {
-      const t = (p - 0.78) / 0.12;
-      pose = this.lerpPose(release, home, t);
+      pose = this.lerpPose(crate, release, (p - 0.68) / 0.1);
+    } else if (p < 0.92) {
+      pose = this.lerpPose(release, home, (p - 0.78) / 0.14);
     } else {
       pose = home;
     }
     this.applyJetcobotPose(robot, pose);
+
+    if (harvestTomato) {
+      harvestTomato.visible = p >= 0.36 && p < 0.78;
+    }
   }
 
   updatePinkies() {
@@ -436,7 +473,7 @@ export class FarmScene3D {
       const pos = samplePolyline(PINKY_PATH_CM, t);
       const m = cmToM(pos.x, pos.y);
       mount.position.set(m.x, 0, m.z);
-      mount.rotation.set(0, pos.heading, 0);
+      mount.rotation.set(0, yawFromPathHeading(pos.heading), 0);
       if (robot?.joints?.l_wheel_joint) {
         robot.joints.l_wheel_joint.setJointValue(t * 24 + i);
       }
@@ -464,10 +501,10 @@ export class FarmScene3D {
 
   updateTomatoes() {
     const phase = this.state.harvestPhase;
-    const picking = phase > 0.2 && phase < 0.55;
+    const picking = phase > 0.26 && phase < 0.5;
     for (const t of this.tomatoes) {
       if (!picking || t.userData.stationId !== this.state.activeStation) continue;
-      if (phase > 0.38 && !t.userData.picked) {
+      if (phase > 0.34 && !t.userData.picked) {
         t.userData.picked = true;
         t.visible = false;
       }
@@ -489,7 +526,12 @@ export class FarmScene3D {
   render() {
     const phase = this.state.harvestPhase;
     this.jetcobots.forEach((mount) =>
-      this.animateJetcobot(mount.userData.robot, phase, mount.userData.stationId),
+      this.animateJetcobot(
+        mount.userData.robot,
+        phase,
+        mount.userData.stationId,
+        mount.userData.harvestTomato,
+      ),
     );
     this.updatePinkies();
     this.updateTomatoes();
