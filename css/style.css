@@ -1,0 +1,164 @@
+:root {
+  color-scheme: dark;
+  --bg: #070b09;
+  --panel: #0f1613;
+  --text: #e4efe6;
+  --muted: #8aa894;
+  --accent: #43a047;
+  --pink: #e91e8c;
+  --blue: #4285f4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: radial-gradient(1200px 600px at 20% -10%, #142018, var(--bg));
+  color: var(--text);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 1.25rem 1.5rem 0.75rem;
+  border-bottom: 1px solid #1e2e24;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+h1 {
+  margin: 0.2rem 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.sub {
+  margin: 0;
+  max-width: 52rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+button {
+  border: 1px solid #2d4a38;
+  background: #15241c;
+  color: var(--text);
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+.speed {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.status {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+
+.views {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem 1rem;
+  min-height: calc(100vh - 9rem);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid #1c2a22;
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 360px;
+}
+
+.panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.view-3d {
+  flex: 1 1 320px;
+  width: 100%;
+  min-height: 320px;
+  height: 42vh;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0a100e;
+}
+
+.view-2d {
+  flex: 1 1 280px;
+  width: 100%;
+  min-height: 280px;
+  height: 38vh;
+  border-radius: 8px;
+  background: #0b1210;
+}
+
+.ref {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.ref a {
+  color: var(--blue);
+}
+
+.footer {
+  padding: 0.75rem 1.5rem 1.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.footer a {
+  color: var(--accent);
+}
+
+.footer code {
+  font-size: 0.75rem;
+  color: #b8d4be;
+}
+
+@media (max-width: 900px) {
+  .views {
+    grid-template-columns: 1fr;
+  }
+}

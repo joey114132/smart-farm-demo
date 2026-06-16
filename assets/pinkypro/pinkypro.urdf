@@ -1,0 +1,139 @@
+<?xml version="1.0"?>
+<robot name="pinky">
+  <link name="base_footprint"/>
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://pinky_description/meshes/visual/base_link.dae" scale="1 1 1"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="base_link_fixed_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0.028" rpy="0 0 0"/>
+  </joint>
+
+  <link name="l_wheel">
+    <visual>
+      <origin rpy="0 0 1.5708" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://pinky_description/meshes/visual/main_wheel.dae" scale="1 1 1"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="l_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="l_wheel"/>
+    <axis xyz="0 1 0"/>
+    <origin xyz="0 0.04055 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="r_wheel">
+    <visual>
+      <origin rpy="0 0 -1.5708" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://pinky_description/meshes/visual/main_wheel.dae" scale="1 1 1"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="r_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="r_wheel"/>
+    <axis xyz="0 1 0"/>
+    <origin xyz="0 -0.04055 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="caster_mount_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://pinky_description/meshes/visual/caster_mount.dae" scale="1 1 1"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="caster_mount_fixed_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="caster_mount_link"/>
+    <origin xyz="-0.0585 0 -0.007" rpy="0 0 0"/>
+  </joint>
+
+  <link name="caster_roate_link">
+    <visual>
+      <geometry>
+        <mesh filename="package://pinky_description/meshes/visual/caster_rotate.dae" scale="1 1 1"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="caster_rotate_joint" type="continuous">
+    <parent link="caster_mount_link"/>
+    <child link="caster_roate_link"/>
+    <axis xyz="0 0 1"/>
+    <origin xyz="0 0 -0.0035" rpy="0 0 0"/>
+  </joint>
+
+  <link name="caster_wheel">
+    <visual>
+      <geometry>
+        <mesh filename="package://pinky_description/meshes/visual/caster_wheel.dae" scale="1 1 1"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="caster_wheel_joint" type="continuous">
+    <parent link="caster_roate_link"/>
+    <child link="caster_wheel"/>
+    <axis xyz="0 1 0"/>
+    <origin xyz="-0.011 0 -0.011" rpy="0 0 0"/>
+  </joint>
+
+  <link name="robot_lamp">
+    <visual>
+      <geometry>
+        <mesh filename="package://pinky_description/meshes/visual/robot_lamp.dae" scale="1 1 1"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="robot_lamp_mount_fixed_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="robot_lamp"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="rplidar_mount">
+    <visual>
+      <geometry>
+        <mesh filename="package://pinky_description/meshes/visual/rplidar_c1.dae" scale="1 1 1"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="rplidar_mount_fixed_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="rplidar_mount"/>
+    <origin xyz="-0.017 0 0.067" rpy="0 0 0"/>
+  </joint>
+
+  <link name="front_camera_mount">
+    <visual>
+      <geometry>
+        <mesh filename="package://pinky_description/meshes/visual/camera_assy.dae" scale="1 1 1"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="front_camera_mount_fixed_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="front_camera_mount"/>
+    <origin xyz="0.020 0 0.0495" rpy="0 0.15 0"/>
+  </joint>
+
+  <link name="screen_mount">
+    <visual>
+      <geometry>
+        <mesh filename="package://pinky_description/meshes/visual/screen_assy.dae" scale="1 1 1"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="screen_mount_fixed_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="screen_mount"/>
+    <origin xyz="0.0165 0 0.071" rpy="0 0.2 0"/>
+  </joint>
+</robot>
