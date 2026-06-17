@@ -58,8 +58,8 @@ export const LOCALIZATION_ZONE = {
 
 /** JetCobot 280 Pi work cells (40×40 cm). */
 export const JETCOBOT_STATIONS = [
-  { id: "A", label: "JetCobot A", x: 25, y: 170, cellSize: 40 },
-  { id: "B", label: "JetCobot B", x: 75, y: 170, cellSize: 40 },
+  { id: "A", label: "JetCobot A", x: 25, y: 182, cellSize: 40 },
+  { id: "B", label: "JetCobot B", x: 75, y: 182, cellSize: 40 },
 ];
 
 /**
@@ -105,12 +105,29 @@ export const CONVEYOR_SPUR_CM = [
   { x: 20, y: PINKY_SOUTH_AISLE_Y },
 ];
 
-/** Pinky 실제 주행 경로 = 사각 루프(폐합) + 컨베이어 스퍼 */
+/** Pinky 실제 주행 경로 = 사각 루프(폐합) + 컨베이어 스퍼 (레거시·문서용) */
 export const PINKY_PATH_CM = [
   ...TRAFFIC_LOOP_CM,
   TRAFFIC_LOOP_CM[0],
   ...CONVEYOR_SPUR_CM.slice(1),
 ];
+
+/** 녹색 사각 루프만 (폐합) — Pinky 2대 순찰 */
+export const PINKY_LOOP_PATH_CM = [...TRAFFIC_LOOP_CM, TRAFFIC_LOOP_CM[0]];
+
+/** 노란 컨베이어 스퍼 왕복 — Pinky 1대 물류 핸드오프 */
+export const PINKY_SPUR_PATH_CM = [...CONVEYOR_SPUR_CM];
+
+/** Pinky 3대: 루프 2 + 스퍼 1 (기존 0 / 0.33 / 0.66 간격 유지) */
+export const PINKY_FLEET = [
+  { id: "P1", role: "loop", pathOffset: 0 },
+  { id: "P2", role: "loop", pathOffset: 0.33 },
+  { id: "P3", role: "spur", pathOffset: 0.66 },
+];
+
+export function pinkyPathForRole(role) {
+  return role === "spur" ? PINKY_SPUR_PATH_CM : PINKY_LOOP_PATH_CM;
+}
 
 /**
  * Tomato beds just north of the map frame, inside JetCobot reach.

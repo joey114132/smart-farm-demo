@@ -10,7 +10,8 @@ import {
   NUTRIENT_AREA,
   TRAFFIC_LOOP_CM,
   CONVEYOR_SPUR_CM,
-  PINKY_PATH_CM,
+  PINKY_FLEET,
+  pinkyPathForRole,
   FARM_BEDS,
   workCellRect,
   samplePolyline,
@@ -200,8 +201,7 @@ export class Map2D {
           const px = x0 + ((c + 0.5) / bed.plantsPerRow) * bed.widthCm;
           const py = bed.zMinCm + ((r + 0.5) / bed.rows) * (bed.zMaxCm - bed.zMinCm);
           const p = this.toPx(px, py);
-          const ripe = (r + c + (this.state.harvestPhase > 0.5 ? 1 : 0)) % 3 !== 0;
-          this.ctx.fillStyle = ripe ? "#c62828" : "#2e7d32";
+          this.ctx.fillStyle = "#c62828";
           this.ctx.beginPath();
           this.ctx.arc(p.x, p.y, plantR, 0, Math.PI * 2);
           this.ctx.fill();
@@ -323,10 +323,9 @@ export class Map2D {
   }
 
   drawPinkies() {
-    const offsets = [0, 0.33, 0.66];
-    const ids = ["P1", "P2", "P3"];
-    offsets.forEach((off, i) => {
-      const pos = samplePolyline(PINKY_PATH_CM, this.state.pinkyT + off);
+    for (const cfg of PINKY_FLEET) {
+      const path = pinkyPathForRole(cfg.role);
+      const pos = samplePolyline(path, this.state.pinkyT + cfg.pathOffset);
       const p = this.toPx(pos.x, pos.y);
       this.ctx.fillStyle = "#e91e8c";
       this.ctx.beginPath();
@@ -335,8 +334,8 @@ export class Map2D {
       this.ctx.fillStyle = "#ffcce8";
       this.ctx.font = "10px system-ui,sans-serif";
       this.ctx.textAlign = "center";
-      this.ctx.fillText(ids[i], p.x, p.y - 8);
-    });
+      this.ctx.fillText(cfg.id, p.x, p.y - 8);
+    }
   }
 
   drawLegend() {

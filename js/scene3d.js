@@ -9,7 +9,8 @@ import {
   FARM_BEDS,
   TRAFFIC_LOOP_CM,
   CONVEYOR_SPUR_CM,
-  PINKY_PATH_CM,
+  PINKY_FLEET,
+  pinkyPathForRole,
   NUTRIENT_AREA,
   PINKY_SOUTH_AISLE_Y,
   PINKY_JETCOBOT_AISLE_Y,
@@ -30,10 +31,10 @@ function yawFromPathHeading(heading) {
   return Math.PI - heading;
 }
 
-/** JetCobot: 세운 뒤 북쪽 재배대(+Z) */
+/** JetCobot: ROS Z-up → Three Y-up + 북쪽(+Z). XYZ에 x·y만 주면 누움 → YXZ + z 보정 */
 function orientJetcobot(robot) {
-  standUrdfOnYUp(robot);
-  robot.rotation.y = Math.PI / 2;
+  robot.rotation.order = "YXZ";
+  robot.rotation.set(-Math.PI / 2, Math.PI / 2, -Math.PI / 2);
 }
 
 /** Pinky Pro: 세운 뒤 주행 전방은 로컬 +X */
@@ -206,7 +207,7 @@ export class FarmScene3D {
           );
           tomato.position.set(pos.x, 0.35 + r * 0.08, pos.z);
           tomato.castShadow = true;
-          tomato.userData = { stationId: bed.stationId, row: r, col: c, picked: false };
+          tomato.userData = { stationId: bed.stationId, row: r, col: c };
           this.scene.add(tomato);
           this.tomatoes.push(tomato);
         }
@@ -376,7 +377,7 @@ export class FarmScene3D {
     }
 
     this.setStatus("Loading Pinky Pro URDF…");
-    for (let i = 0; i < 3; i++) {
+    for (const cfg of PINKY_FLEET) {
       const robot = await this.loadUrdf(loader, "assets/pinkypro/pinkypro.urdf");
       orientPinky(robot);
       robot.traverse((o) => {
@@ -387,7 +388,9 @@ export class FarmScene3D {
       });
       const mount = new THREE.Group();
       mount.add(robot);
-      mount.userData.pathOffset = i / 3;
+      mount.userData.pinkyId = cfg.id;
+      mount.userData.pathCm = pinkyPathForRole(cfg.role);
+      mount.userData.pathOffset = cfg.pathOffset;
       mount.userData.robot = robot;
       this.scene.add(mount);
       this.pinkies.push(mount);
@@ -469,8 +472,9 @@ export class FarmScene3D {
   updatePinkies() {
     this.pinkies.forEach((mount, i) => {
       const robot = mount.userData.robot;
+      const path = mount.userData.pathCm;
       const t = this.state.pinkyT + (mount.userData.pathOffset || 0);
-      const pos = samplePolyline(PINKY_PATH_CM, t);
+      const pos = samplePolyline(path, t);
       const m = cmToM(pos.x, pos.y);
       mount.position.set(m.x, 0, m.z);
       mount.rotation.set(0, yawFromPathHeading(pos.heading), 0);
@@ -499,22 +503,6 @@ export class FarmScene3D {
     });
   }
 
-  updateTomatoes() {
-    const phase = this.state.harvestPhase;
-    const picking = phase > 0.26 && phase < 0.5;
-    for (const t of this.tomatoes) {
-      if (!picking || t.userData.stationId !== this.state.activeStation) continue;
-      if (phase > 0.34 && !t.userData.picked) {
-        t.userData.picked = true;
-        t.visible = false;
-      }
-      if (phase < 0.05) {
-        t.userData.picked = false;
-        t.visible = true;
-      }
-    }
-  }
-
   onResize() {
     const w = this.mount.clientWidth;
     const h = Math.max(this.mount.clientHeight, 1);
@@ -534,7 +522,6 @@ export class FarmScene3D {
       ),
     );
     this.updatePinkies();
-    this.updateTomatoes();
     this.updateConveyor();
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
